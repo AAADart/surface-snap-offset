@@ -1,0 +1,20 @@
+schema_version = "1.0.0"
+
+id = "surface_snap_offset"
+version = "1.0.0"
+name = "Surface Snap Offset"
+tagline = "Snap vertices with offset along surface normals"
+maintainer = "AAADart & GPT"
+type = "add-on"
+
+blender_version_min = "4.2.0"
+
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
+
+tags = ["3D View", "Modeling", "Mesh"]
+
+copyright = [
+  "2026 AAADart & GPT",
+]
