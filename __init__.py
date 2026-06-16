@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Surface Snap Offset",
     "author": "AAADart & GPT",
-    "version": (1, 0, 0),
+    "version": (1, 0, 1),
     "blender": (4, 2, 0),
     "location": "3D View > Snap Popover + G / Alt G",
     "description": "Snap selected vertices to surfaces with a controllable normal offset",
@@ -11,6 +11,7 @@ bl_info = {
 import bpy
 import bmesh
 from mathutils import Vector
+from mathutils.bvhtree import BVHTree
 from bpy_extras import view3d_utils
 
 
@@ -240,27 +241,48 @@ class VIEW3D_OT_surface_snap_offset_move(bpy.types.Operator):
 
             is_active = obj == self.obj
 
-            if is_active and not (use_snap_edit or use_snap_self):
-                continue
+            # Normal G respects Blender Snap Target Selection.
+            # Alt+G force_offset ignores these filters so it can also work
+            # in a simple single-object Edit Mode setup.
+            if not self.force_offset:
+                if is_active and not (use_snap_edit or use_snap_self):
+                    continue
 
-            if not is_active and not use_snap_nonedit:
-                continue
+                if not is_active and not use_snap_nonedit:
+                    continue
 
-            eval_obj = obj.evaluated_get(depsgraph)
-            matrix = eval_obj.matrix_world
+            matrix = obj.matrix_world
             inv_matrix = matrix.inverted()
 
             local_origin = inv_matrix @ ray_origin
             local_direction = inv_matrix.to_3x3() @ ray_direction
             local_direction.normalize()
 
-            success, location, normal, face_index = eval_obj.ray_cast(
-                local_origin,
-                local_direction
-            )
+            if is_active:
+                bm = bmesh.from_edit_mesh(obj.data)
+                bm.verts.ensure_lookup_table()
+                bm.edges.ensure_lookup_table()
+                bm.faces.ensure_lookup_table()
 
-            if not success:
-                continue
+                bvh = BVHTree.FromBMesh(bm)
+                location, normal, face_index, distance_local = bvh.ray_cast(
+                    local_origin,
+                    local_direction
+                )
+
+                if location is None:
+                    continue
+
+            else:
+                eval_obj = obj.evaluated_get(depsgraph)
+
+                success, location, normal, face_index = eval_obj.ray_cast(
+                    local_origin,
+                    local_direction
+                )
+
+                if not success:
+                    continue
 
             world_location = matrix @ location
             world_normal = matrix.to_3x3() @ normal
